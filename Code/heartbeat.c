@@ -28,8 +28,6 @@
 
 #define BUTTON1 PD5
 
-uint8_t column, yPrevious; 
-
 uint8_t data[512]; 
 uint8_t dataIndex; 
 
@@ -71,19 +69,17 @@ int main(void)
   TCCR0B |= (1<<CS00) | (1<<CS02);
   // Compare Match A interrupt enable. 
   TIMSK0 |= (1<<OCIE0A);
-  // Compare register A. 128 gives a sampling rate of 122Hz. 
-  //OCR0A = 48;
-  OCR0A = 128;
-  
-  dataIndex = 0;
+  // Compare register A. 
+  OCR0A = 52; // 52 = 300.48Hz
+  //OCR0A = 78; // 78 = 200Hz
+  //OCR0A = 255; // 255 = 61Hz
 
-  yPrevious = 0; 
+  dataIndex = 0;
 
   sei(); // Enable interrupts. 
   
   int i;
 
-  column = 0; 
 
   char timeString[4];
   timeString[3] = 0; 
@@ -94,9 +90,28 @@ int main(void)
   {
     sharpLCDClearBuffer();
 
-    for(i=0; i<85; i++)
+    //for(i=0; i<95; i++)
+    //{
+    //  sharpLCDDrawLine(i,data[i]*96/256,i+1,data[i+1]*96/256);
+    //}
+
+    uint16_t startScreen; // Where in data to start screen drawing. 
+
+    if (trigPos >= trigTime/8) // Check trigPos larger or equal to trigTime/8.
     {
-      sharpLCDDrawLine(i+10,data[(trigPos+i)%95]*96/256,i+1+10,data[((trigPos+i)%95)+1]*96/256);
+      startScreen = trigPos - trigTime/8;  // Start slightly before large peak. 
+    }
+    else
+    {
+      startScreen = (512 + trigPos) - trigTime/8; // 511 is highest possible value. 
+    }
+
+    for (i=0; i<95; i++)
+    {
+      if ((startScreen + (i*trigTime)/96) < dataIndex)
+      { 
+        sharpLCDDrawLine(i, data[(startScreen+(i*trigTime)/96)%512]*96/256, i+1, data[(startScreen+(i*trigTime)/96+1)%512]*96/256);
+      }
     }
 
     trigger = mode*10;
@@ -106,7 +121,7 @@ int main(void)
     modeString[6] = 48 + mode%10;
     modeString[5] = 48 + mode/10;
 
-    pulse = 7320/trigTime; 
+    pulse = 18000/trigTime;  // Pulse calculation at 300Hz sample rate. 
 
     timeString[0] = 48 + (pulse/100);
     timeString[1] = 48 + ((pulse%100)/10);
@@ -131,13 +146,8 @@ ISR(TIMER0_COMPA_vect)
   /* Read ADC. */
   data[dataIndex] = ADCH;
 
-  if (dataIndex == 95) // 95 = We have come to the end. 
-  {
-    dataIndex = 0;
-  }
-
   trigCount++;
-  if (dataIndex > 0 && data[dataIndex] >= trigger && data[dataIndex - 1] < trigger)
+  if (dataIndex > 0 && data[dataIndex] <= trigger && data[dataIndex - 1] > trigger)
   {
     trigTime = trigCount; 
     trigCount = 0;
@@ -145,6 +155,11 @@ ISR(TIMER0_COMPA_vect)
   } 
     
   dataIndex++;
+
+  if (dataIndex == 512) // 512 = We have come to the end. 
+  {
+    dataIndex = 0;
+  }
 
   /* Read button. */
   if (PIND & (1<<BUTTON1))
