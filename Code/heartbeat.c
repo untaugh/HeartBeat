@@ -35,13 +35,15 @@ uint16_t mode; // Keep track of mode.
 
 char modeString[] = "Mode xx";
 
+char tempString[15];
+
 uint8_t buttonFlag; // Track if button pressed. 
 uint8_t buttonCount; // Count button press time. 
 
 uint16_t trigger;  // Trigger level. 
-uint8_t trigTime;  // Length of one trigger to next. 
-uint8_t trigCount; // Count from one trigger to next. 
-uint8_t trigPos;   // Where in the data is the trigger. 
+uint16_t trigTime;  // Length of one trigger to next. 
+uint16_t trigCount; // Count from one trigger to next. 
+uint16_t trigPos;   // Where in the data is the trigger. 
 
 int main(void)
 {
@@ -80,6 +82,8 @@ int main(void)
   
   int i;
 
+  trigTime = 300;
+  mode = 5; 
 
   char timeString[4];
   timeString[3] = 0; 
@@ -92,45 +96,77 @@ int main(void)
 
     //for(i=0; i<95; i++)
     //{
-    //  sharpLCDDrawLine(i,data[i]*96/256,i+1,data[i+1]*96/256);
+    //  sharpLCDDrawLine(i,data[i*2]*96/256,i+1,data[i*2+2]*96/256);
     //}
 
     uint16_t startScreen; // Where in data to start screen drawing. 
 
-    if (trigPos >= trigTime/8) // Check trigPos larger or equal to trigTime/8.
+    if (trigPos >= 10)
     {
-      startScreen = trigPos - trigTime/8;  // Start slightly before large peak. 
+      startScreen = trigPos - 10; 
     }
     else
     {
-      startScreen = (512 + trigPos) - trigTime/8; // 511 is highest possible value. 
+      startScreen = 512 - 10 - trigPos; 
     }
 
+    uint16_t iscale; 
+
+    for(i=0; i<95; i++)
+    {
+      //iscale = (i*300)/96;
+      iscale = i; 
+      
+      if (startScreen + iscale < 511) // check if we have gone past buffer size.
+        sharpLCDDrawLine(i,data[startScreen + iscale]*96/256,i+1,data[startScreen + iscale + 1]*96/256);
+      else
+        sharpLCDDrawLine(i,data[(startScreen + iscale)-511]*96/256,i+1,data[(startScreen + iscale + 1)-511]*96/256);
+    }
+    
+    //if (trigPos >= trigTime/8) // Check trigPos larger or equal to trigTime/8.
+    //{
+      //startScreen = trigPos - trigTime/8;  // Start slightly before large peak. 
+    //}
+    //else
+    //{
+      //startScreen = (512 + trigPos) - trigTime/8; // 511 is highest possible value. 
+    //}
+/*
+    startScreen = trigPos; 
+
+    uint8_t y1, y2;
+    
     for (i=0; i<95; i++)
     {
-      if ((startScreen + (i*trigTime)/96) < dataIndex)
-      { 
-        sharpLCDDrawLine(i, data[(startScreen+(i*trigTime)/96)%512]*96/256, i+1, data[(startScreen+(i*trigTime)/96+1)%512]*96/256);
-      }
-    }
+      //y1 = (startScreen+(i*trigTime)/96);
+      y1 = startScreen + i;
+
+      if (y1 > 511) y1 = y1 - 512; 
+      
+      
+      sharpLCDDrawLine(i, data[y1]*96/256, i+1, data[y1+1]*96/256);
+    }*/
 
     trigger = mode*10;
 
     sharpLCDDrawLine(0,trigger*96/256,10,trigger*96/256);
 
-    modeString[6] = 48 + mode%10;
-    modeString[5] = 48 + mode/10;
+
 
     pulse = 18000/trigTime;  // Pulse calculation at 300Hz sample rate. 
 
-    timeString[0] = 48 + (pulse/100);
-    timeString[1] = 48 + ((pulse%100)/10);
-    timeString[2] = 48 + (pulse%10);
+    tempString[0] = 48 + (pulse/100);
+    tempString[1] = 48 + ((pulse%100)/10);
+    tempString[2] = 48 + (pulse%10);
+    tempString[3] = ' ';
+    tempString[4] = 48 + mode%10;
+    tempString[5] = 48 + mode/10;    
+    tempString[6] = 0;
     
-    sharpLCDPrint(timeString, 10+12, 18);
+    //sharpLCDPrint(timeString, 10, 18);
 
 
-    sharpLCDPrint(modeString, 10, 10);
+    sharpLCDPrint(tempString, 10, 10);
 
     sharpLCDWriteBuffer();
 
