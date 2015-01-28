@@ -80,7 +80,7 @@ int main(void)
 
   sei(); // Enable interrupts. 
   
-  int i;
+  int i,j;
 
   trigTime = 300;
   mode = 5; 
@@ -94,58 +94,11 @@ int main(void)
   {
     sharpLCDClearBuffer();
 
-    //for(i=0; i<95; i++)
-    //{
-    //  sharpLCDDrawLine(i,data[i*2]*96/256,i+1,data[i*2+2]*96/256);
-    //}
-
-    uint16_t startScreen; // Where in data to start screen drawing. 
-
-    if (trigPos >= 10)
-    {
-      startScreen = trigPos - 10; 
-    }
-    else
-    {
-      startScreen = 512 - 10 - trigPos; 
-    }
-
-    uint16_t iscale; 
-
     for(i=0; i<95; i++)
     {
-      //iscale = (i*300)/96;
-      iscale = i; 
-      
-      if (startScreen + iscale < 511) // check if we have gone past buffer size.
-        sharpLCDDrawLine(i,data[startScreen + iscale]*96/256,i+1,data[startScreen + iscale + 1]*96/256);
-      else
-        sharpLCDDrawLine(i,data[(startScreen + iscale)-511]*96/256,i+1,data[(startScreen + iscale + 1)-511]*96/256);
+      sharpLCDDrawLine(i,data[i]*96/256,i+1,data[i+1]*96/256);
     }
-    
-    //if (trigPos >= trigTime/8) // Check trigPos larger or equal to trigTime/8.
-    //{
-      //startScreen = trigPos - trigTime/8;  // Start slightly before large peak. 
-    //}
-    //else
-    //{
-      //startScreen = (512 + trigPos) - trigTime/8; // 511 is highest possible value. 
-    //}
-/*
-    startScreen = trigPos; 
 
-    uint8_t y1, y2;
-    
-    for (i=0; i<95; i++)
-    {
-      //y1 = (startScreen+(i*trigTime)/96);
-      y1 = startScreen + i;
-
-      if (y1 > 511) y1 = y1 - 512; 
-      
-      
-      sharpLCDDrawLine(i, data[y1]*96/256, i+1, data[y1+1]*96/256);
-    }*/
 
     trigger = mode*10;
 
@@ -155,18 +108,35 @@ int main(void)
 
     pulse = 18000/trigTime;  // Pulse calculation at 300Hz sample rate. 
 
-    tempString[0] = 48 + (pulse/100);
-    tempString[1] = 48 + ((pulse%100)/10);
-    tempString[2] = 48 + (pulse%10);
-    tempString[3] = ' ';
-    tempString[4] = 48 + mode%10;
-    tempString[5] = 48 + mode/10;    
+    tempString[0] = 'c';
+    tempString[1] = 'r';
+    tempString[2] = ':';
+    tempString[3] = 48 + (OCR0A/100);
+    tempString[4] = 48 + ((OCR0A%100)/10);
+    tempString[5] = 48 + (OCR0A%10); 
     tempString[6] = 0;
+
+    sharpLCDPrint(tempString, 10, 60);
+
+    tempString[0] = 'm';
+    tempString[1] = 'd';
+    tempString[2] = ':';
+    tempString[3] = 48 + mode/10;
+    tempString[4] = 48 + mode%10;    
+    tempString[5] = 0;
+
+    sharpLCDPrint(tempString, 10, 70);
+
+    tempString[0] = 't';
+    tempString[1] = 't';
+    tempString[2] = ':';
+    tempString[3] = 48 + (trigTime/100);
+    tempString[4] = 48 + ((trigTime%100)/10);
+    tempString[5] = 48 + (trigTime%10);
+    tempString[6] = 0;
+    sharpLCDPrint(tempString, 10, 80);
+
     
-    //sharpLCDPrint(timeString, 10, 18);
-
-
-    sharpLCDPrint(tempString, 10, 10);
 
     sharpLCDWriteBuffer();
 
@@ -176,7 +146,6 @@ int main(void)
   return 0; 
 }
 
-// 122 Hz
 ISR(TIMER0_COMPA_vect)
 {
   /* Read ADC. */
@@ -188,14 +157,25 @@ ISR(TIMER0_COMPA_vect)
     trigTime = trigCount; 
     trigCount = 0;
     trigPos = dataIndex; 
-  } 
-    
+  }
+
+  if (trigTime > 96 && OCR0A < 200)
+  {
+    OCR0A++;
+  }
+  else if (trigTime < 96 && OCR0A > 52)
+  {
+    OCR0A--;
+  }
+  
   dataIndex++;
 
-  if (dataIndex == 512) // 512 = We have come to the end. 
+  if (dataIndex == 96) // 96 = We have come to the end. 
   {
     dataIndex = 0;
   }
+
+
 
   /* Read button. */
   if (PIND & (1<<BUTTON1))
