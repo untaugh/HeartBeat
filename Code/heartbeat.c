@@ -157,7 +157,6 @@ ISR(TIMER0_COMPA_vect)
     trigTime = trigCount; 
     trigCount = 0;
     trigPos = dataIndex; 
-  }
 
   if (trigTime > 96 && OCR0A < 200)
   {
@@ -167,6 +166,9 @@ ISR(TIMER0_COMPA_vect)
   {
     OCR0A--;
   }
+
+  }
+
   
   dataIndex++;
 
